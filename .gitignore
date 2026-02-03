@@ -36,6 +36,7 @@ optimization_results/
 *.png
 *.json
 *.csv
+# Exception: Keep input data files that start with Data_
 !Data_*.csv
 
 # Temporary files
