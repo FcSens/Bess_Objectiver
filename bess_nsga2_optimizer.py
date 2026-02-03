@@ -652,14 +652,57 @@ class BESSOptimizer:
         
         return results_dict
     
+    def _ensure_results_available(self) -> None:
+        """
+        Ensure optimization results are available.
+        
+        Raises:
+            ValueError: If no results are available
+        """
+        if self.result is None:
+            raise ValueError("No results available. Run optimization first.")
+    
+    def _get_pareto_data(self) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Extract Pareto front and solutions from results.
+        
+        Returns:
+            Tuple of (pareto_front, pareto_solutions)
+            
+        Raises:
+            ValueError: If no results are available
+        """
+        self._ensure_results_available()
+        return self.result.F, self.result.X
+    
+    def _extract_bus_indices(self, pareto_solutions: np.ndarray, warn_non_finite: bool = False) -> List[int]:
+        """
+        Extract and validate bus indices from Pareto solutions.
+        
+        Args:
+            pareto_solutions: Array of Pareto solutions (shape: n_solutions x 2)
+            warn_non_finite: Whether to log warning for non-finite bus values
+            
+        Returns:
+            List of actual bus IDs (mapped from candidate_buses)
+        """
+        pareto_buses = []
+        for x in pareto_solutions:
+            bus_val = x[1]
+            if not np.isfinite(bus_val):
+                if warn_non_finite:
+                    logging.warning(f"Non-finite bus value in Pareto solution: {bus_val}, using 0")
+                bus_val = 0.0
+            bus_idx = int(np.clip(np.round(bus_val), 0, len(self.candidate_buses) - 1))
+            pareto_buses.append(self.candidate_buses[bus_idx])
+        return pareto_buses
+    
     def _process_results(self, elapsed_time: float, verbose: bool = True) -> Dict[str, Any]:
         """Process and summarize optimization results."""
-        if self.result is None:
-            raise ValueError("No optimization results available. Run optimization first.")
+        self._ensure_results_available()
 
         # Extract Pareto front
-        pareto_front = self.result.F
-        pareto_solutions = self.result.X
+        pareto_front, pareto_solutions = self._get_pareto_data()
 
         n_pareto = len(pareto_front)
 
@@ -690,14 +733,7 @@ class BESSOptimizer:
         # Extract solution components (handle array format with rounding for bus)
         pareto_capacities = pareto_solutions[:, 0]
         # Ensure bus indices are within valid range after rounding (with NaN protection)
-        pareto_buses = []
-        for x in pareto_solutions:
-            bus_val = x[1]
-            if not np.isfinite(bus_val):
-                logging.warning(f"Non-finite bus value in Pareto solution: {bus_val}, using 0")
-                bus_val = 0.0
-            bus_idx = int(np.clip(np.round(bus_val), 0, len(self.candidate_buses) - 1))
-            pareto_buses.append(self.candidate_buses[bus_idx])
+        pareto_buses = self._extract_bus_indices(pareto_solutions, warn_non_finite=True)
 
         # Find best solutions for each objective
         best_indices = {
@@ -995,11 +1031,7 @@ class BESSOptimizer:
             >>> best = optimizer.select_best_solution(method='utopian')
             >>> print(f"Best solution: {best['capacity_mwh']} MWh at bus {best['bus']}")
         """
-        if self.result is None:
-            raise ValueError("No results available. Run optimization first.")
-        
-        pareto_front = self.result.F
-        pareto_solutions = self.result.X
+        pareto_front, pareto_solutions = self._get_pareto_data()
         
         if len(pareto_front) == 0:
             raise ValueError("No Pareto solutions found")
@@ -1079,22 +1111,12 @@ class BESSOptimizer:
             >>> for candidate in top_10:
             ...     print(f"Rank {candidate['rank']}: {candidate['capacity_mwh']} MWh")
         """
-        if self.result is None:
-            raise ValueError("No results available. Run optimization first.")
-        
-        pareto_front = self.result.F
-        pareto_solutions = self.result.X
+        pareto_front, pareto_solutions = self._get_pareto_data()
         
         pareto_capacities = pareto_solutions[:, 0]
         
         # Protect against NaN/Inf in bus indices
-        pareto_buses = []
-        for x in pareto_solutions:
-            bus_val = x[1]
-            if not np.isfinite(bus_val):
-                bus_val = 0.0
-            bus_idx = int(np.clip(np.round(bus_val), 0, len(self.candidate_buses) - 1))
-            pareto_buses.append(self.candidate_buses[bus_idx])
+        pareto_buses = self._extract_bus_indices(pareto_solutions, warn_non_finite=False)
         
         # Get full candidate list with all rankings
         all_candidates = self._get_top_candidates(pareto_front, pareto_capacities, 
@@ -1162,11 +1184,7 @@ class BESSOptimizer:
         Example:
             >>> optimizer.compare_candidates([0, 5, 10, 15])  # Compare 4 solutions
         """
-        if self.result is None:
-            raise ValueError("No results available. Run optimization first.")
-        
-        pareto_front = self.result.F
-        pareto_solutions = self.result.X
+        pareto_front, pareto_solutions = self._get_pareto_data()
         
         print("\n" + "="*80)
         print("CANDIDATE COMPARISON")
@@ -1246,8 +1264,7 @@ class BESSOptimizer:
             figsize: Figure size
             save_path: Path to save figure (optional)
         """
-        if self.result is None:
-            raise ValueError("No results to plot. Run optimization first.")
+        self._ensure_results_available()
         
         plot_pareto_front_2d(
             pareto_front=self.result.F,
@@ -1270,8 +1287,7 @@ class BESSOptimizer:
             figsize: Figure size
             save_path: Path to save figure (optional)
         """
-        if self.result is None:
-            raise ValueError("No results to plot. Run optimization first.")
+        self._ensure_results_available()
         
         plot_pareto_front_3d(
             pareto_front=self.result.F,
@@ -1293,9 +1309,7 @@ class BESSOptimizer:
         - Convergence rate
         - Stability score
         """
-        if self.result is None:
-            logging.error("No results to plot. Run optimization first.")
-            return
+        self._ensure_results_available()
         
         plot_convergence_analysis(
             callback_data=self.callback,
@@ -1331,8 +1345,7 @@ class BESSOptimizer:
     
     def save_results(self, filepath: str):
         """Save optimization results to JSON file."""
-        if self.result is None:
-            raise ValueError("No results to save. Run optimization first.")
+        self._ensure_results_available()
         
         results = self._process_results(0, verbose=False)
         
@@ -1344,19 +1357,6 @@ class BESSOptimizer:
         
         logging.info(f"Results saved to {filepath}")
     
-    def _make_json_serializable(self, obj):
-        """Recursively convert numpy types to native Python types."""
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        elif isinstance(obj, np.generic):
-            return obj.item()
-        elif isinstance(obj, dict):
-            return {k: self._make_json_serializable(v) for k, v in obj.items()}
-        elif isinstance(obj, (list, tuple)):
-            return [self._make_json_serializable(item) for item in obj]
-        else:
-            return obj
-    
     def export_pareto_solutions(self, filepath: str, format: str = 'csv'):
         """
         Export Pareto solutions to CSV or Excel.
@@ -1365,17 +1365,13 @@ class BESSOptimizer:
             filepath: Output file path
             format: 'csv' or 'excel'
         """
-        if self.result is None:
-            raise ValueError("No results to export. Run optimization first.")
+        pareto_front, pareto_solutions = self._get_pareto_data()
         
         import pandas as pd
         
-        pareto_front = self.result.F
-        pareto_solutions = self.result.X
-        
         # Extract solution components
         capacities = pareto_solutions[:, 0]
-        buses = [self.candidate_buses[int(np.round(x[1]))] for x in pareto_solutions]
+        buses = self._extract_bus_indices(pareto_solutions, warn_non_finite=False)
         
         # Create DataFrame
         df = pd.DataFrame({
