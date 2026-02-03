@@ -52,15 +52,14 @@ from config import (
     RESULT_IDX_LCOS,
 )
 
-# Import optimization modules
-from optimization.callbacks import BESSProgressCallback, print_convergence_summary
-
-# Import visualization modules
-from visualization.plots import (
-    plot_pareto_front_2d,
-    plot_pareto_front_3d,
-    plot_convergence_analysis,
-)
+# Note: Module imports commented out - classes/functions defined inline below
+# from optimization.callbacks import BESSProgressCallback, print_convergence_summary
+# 
+# from visualization.plots import (
+#     plot_pareto_front_2d,
+#     plot_pareto_front_3d,
+#     plot_convergence_analysis,
+# )
 
 try:
     from pymoo.algorithms.moo.nsga2 import NSGA2
@@ -83,7 +82,206 @@ except ImportError:
     _PLOTTING_AVAILABLE = False
     logging.warning("matplotlib/seaborn not available for plotting")
 
-import base_functions as bf
+# ============================================================================
+# UTILITY CLASSES AND FUNCTIONS - Inline definitions for missing module imports
+# ============================================================================
+
+class BESSProgressCallback:
+    """Callback for monitoring NSGA-II optimization progress.
+    
+    Tracks convergence metrics and provides periodic logging.
+    """
+    
+    def __init__(self, log_interval: int = 5, convergence_window: int = 10):
+        """Initialize callback.
+        
+        Args:
+            log_interval: Print progress every N generations
+            convergence_window: Window size for convergence detection
+        """
+        self.log_interval = log_interval
+        self.convergence_window = convergence_window
+        self.history = []
+        self.generation_times = []
+        self.start_time = time.time()
+        
+    def __call__(self, algorithm):
+        """Called by pymoo after each generation."""
+        gen = algorithm.n_gen
+        n_evals = algorithm.evaluator.n_eval
+        
+        # Record metrics
+        self.history.append({
+            'generation': gen,
+            'n_evals': n_evals,
+            'n_solutions': len(algorithm.pop),
+            'timestamp': time.time()
+        })
+        
+        # Log progress
+        if gen % self.log_interval == 0 or gen == 1:
+            elapsed = time.time() - self.start_time
+            logging.info(f"Generation {gen:3d} | Evaluations: {n_evals:5d} | "
+                        f"Population: {len(algorithm.pop):3d} | Time: {elapsed:5.1f}s")
+    
+    def get_convergence_summary(self) -> Dict[str, Any]:
+        """Get convergence analysis summary."""
+        if not self.history:
+            return {}
+            
+        return {
+            'total_generations': len(self.history),
+            'total_evaluations': self.history[-1]['n_evals'],
+            'total_time': time.time() - self.start_time,
+            'avg_time_per_generation': (time.time() - self.start_time) / len(self.history)
+        }
+
+
+def print_convergence_summary(convergence: Dict[str, Any]):
+    """Print convergence analysis summary.
+    
+    Args:
+        convergence: Dictionary with convergence metrics
+    """
+    if not convergence:
+        return
+        
+    print("\n" + "="*70)
+    print("CONVERGENCE ANALYSIS")
+    print("="*70)
+    print(f"Total generations:     {convergence.get('total_generations', 'N/A')}")
+    print(f"Total evaluations:     {convergence.get('total_evaluations', 'N/A')}")
+    print(f"Total time:            {convergence.get('total_time', 0):.1f}s")
+    print(f"Avg time/generation:   {convergence.get('avg_time_per_generation', 0):.2f}s")
+    print("="*70 + "\n")
+
+
+def plot_pareto_front_2d(
+    pareto_f: np.ndarray,
+    objective_names: List[str],
+    title: str = "Pareto Front",
+    filename: Optional[str] = None
+):
+    """Plot 2D Pareto front.
+    
+    Args:
+        pareto_f: Objective values (N x M array)
+        objective_names: Names of objectives
+        title: Plot title
+        filename: Optional filename to save plot
+    """
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        logging.warning("matplotlib not available - skipping plot")
+        return
+    
+    if pareto_f.shape[1] < 2:
+        logging.warning("Need at least 2 objectives for 2D plot")
+        return
+        
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    pairs = [(0, 1), (0, 2), (1, 2)]
+    
+    for ax, (i, j) in zip(axes, pairs):
+        if i < pareto_f.shape[1] and j < pareto_f.shape[1]:
+            ax.scatter(pareto_f[:, i], pareto_f[:, j], alpha=0.6)
+            ax.set_xlabel(objective_names[i] if i < len(objective_names) else f"F{i+1}")
+            ax.set_ylabel(objective_names[j] if j < len(objective_names) else f"F{j+1}")
+            ax.grid(True, alpha=0.3)
+    
+    plt.suptitle(title)
+    plt.tight_layout()
+    
+    if filename:
+        plt.savefig(filename, dpi=150, bbox_inches='tight')
+        logging.info(f"Saved 2D Pareto front to {filename}")
+    else:
+        plt.show()
+    plt.close()
+
+
+def plot_pareto_front_3d(
+    pareto_f: np.ndarray,
+    objective_names: List[str],
+    title: str = "3D Pareto Front",
+    filename: Optional[str] = None
+):
+    """Plot 3D Pareto front.
+    
+    Args:
+        pareto_f: Objective values (N x M array, M >= 3)
+        objective_names: Names of objectives
+        title: Plot title
+        filename: Optional filename to save plot
+    """
+    try:
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d import Axes3D
+    except ImportError:
+        logging.warning("matplotlib not available - skipping 3D plot")
+        return
+    
+    if pareto_f.shape[1] < 3:
+        logging.warning("Need at least 3 objectives for 3D plot")
+        return
+    
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    
+    ax.scatter(pareto_f[:, 0], pareto_f[:, 1], pareto_f[:, 2], alpha=0.6)
+    ax.set_xlabel(objective_names[0] if len(objective_names) > 0 else "F1")
+    ax.set_ylabel(objective_names[1] if len(objective_names) > 1 else "F2")
+    ax.set_zlabel(objective_names[2] if len(objective_names) > 2 else "F3")
+    ax.set_title(title)
+    
+    if filename:
+        plt.savefig(filename, dpi=150, bbox_inches='tight')
+        logging.info(f"Saved 3D Pareto front to {filename}")
+    else:
+        plt.show()
+    plt.close()
+
+
+def plot_convergence_analysis(
+    convergence_data: Dict[str, Any],
+    filename: Optional[str] = None
+):
+    """Plot convergence analysis.
+    
+    Args:
+        convergence_data: Dictionary with convergence metrics
+        filename: Optional filename to save plot
+    """
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        logging.warning("matplotlib not available - skipping convergence plot")
+        return
+    
+    # Simple convergence plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # If we have history data, plot it
+    if 'history' in convergence_data:
+        history = convergence_data['history']
+        generations = [h['generation'] for h in history]
+        ax.plot(generations, label='Progress')
+        ax.set_xlabel('Generation')
+        ax.set_ylabel('Metric')
+        ax.set_title('Convergence Analysis')
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+    else:
+        ax.text(0.5, 0.5, 'No convergence data available', 
+                ha='center', va='center', transform=ax.transAxes)
+    
+    if filename:
+        plt.savefig(filename, dpi=150, bbox_inches='tight')
+        logging.info(f"Saved convergence plot to {filename}")
+    else:
+        plt.show()
+    plt.close()
 
 
 # BESSProgressCallback has been moved to optimization/callbacks.py
