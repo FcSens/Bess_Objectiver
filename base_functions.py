@@ -208,20 +208,31 @@ def calculate_npv(
 ) -> float:
     """Calculate Net Present Value.
     
-    This is a wrapper that delegates to _calculate_financial_metrics.
+    Note: This is a placeholder. The actual NPV calculation is performed by
+    _calculate_financial_metrics() within evaluate_objectives_simple().
+    
+    Raises:
+        NotImplementedError: This function is not directly implemented
     """
-    # This will be computed by _calculate_financial_metrics
-    # For now, return a placeholder that will be computed properly
-    return 0.0  # Will be computed by evaluate_objectives_simple
+    raise NotImplementedError(
+        "NPV calculation is performed by _calculate_financial_metrics(). "
+        "Use evaluate_objectives_simple() instead."
+    )
 
 
 def calculate_load_fluctuation(bess_output: np.ndarray, net_load: np.ndarray) -> float:
     """Calculate load fluctuation metric.
     
-    This is a wrapper that delegates to _calculate_fluctuation_metric.
+    Note: This is a placeholder. The actual fluctuation calculation is performed by
+    _calculate_fluctuation_metric() within evaluate_objectives_simple().
+    
+    Raises:
+        NotImplementedError: This function is not directly implemented
     """
-    # This will be computed by _calculate_fluctuation_metric
-    return 0.0  # Will be computed by evaluate_objectives_simple
+    raise NotImplementedError(
+        "Load fluctuation calculation is performed by _calculate_fluctuation_metric(). "
+        "Use evaluate_objectives_simple() instead."
+    )
 
 
 def calculate_total_voltage_violation(
@@ -248,10 +259,16 @@ def calculate_gwp(
 ) -> float:
     """Calculate total Global Warming Potential.
     
-    This is a wrapper that delegates to _calculate_environmental_metrics.
+    Note: This is a placeholder. The actual GWP calculation is performed by
+    _calculate_environmental_metrics() within evaluate_objectives_simple().
+    
+    Raises:
+        NotImplementedError: This function is not directly implemented
     """
-    # This will be computed by _calculate_environmental_metrics
-    return 0.0  # Will be computed by evaluate_objectives_simple
+    raise NotImplementedError(
+        "GWP calculation is performed by _calculate_environmental_metrics(). "
+        "Use evaluate_objectives_simple() instead."
+    )
 
 
 def get_dispatch_performance_stats() -> Dict[str, Any]:

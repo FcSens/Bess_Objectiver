@@ -82,9 +82,6 @@ except ImportError:
     _PLOTTING_AVAILABLE = False
     logging.warning("matplotlib/seaborn not available for plotting")
 
-import base_functions as bf
-
-
 # ============================================================================
 # UTILITY CLASSES AND FUNCTIONS - Inline definitions for missing module imports
 # ============================================================================
@@ -134,9 +131,9 @@ class BESSProgressCallback:
             
         return {
             'total_generations': len(self.history),
-            'total_evaluations': self.history[-1]['n_evals'] if self.history else 0,
+            'total_evaluations': self.history[-1]['n_evals'],
             'total_time': time.time() - self.start_time,
-            'avg_time_per_generation': (time.time() - self.start_time) / len(self.history) if self.history else 0
+            'avg_time_per_generation': (time.time() - self.start_time) / len(self.history)
         }
 
 
